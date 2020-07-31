@@ -39,8 +39,13 @@ class mastermind
             hint.all? {|ch| ch == 'O'} ? @game = true : @game = false
             @game ? puts "Congratulations! You guessed correctly. It took you " + @attempts " attempts." : puts hint
             @attempts += 1
-            break if @attempts == 12 or @game = true
+            break if @attempts == MAX_ATTEMPTS or @game == true
         end
+
+        if @game == false and @attempts == MAX_ATTEMPTS
+            puts "You ran out attempts. Better luck next time!"
+        end
+        
 
 
     end
@@ -76,7 +81,9 @@ class mastermind
             return false
         end
     end
+end
 
+myGame = 
 
 
 
