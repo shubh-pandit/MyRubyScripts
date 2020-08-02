@@ -1,11 +1,7 @@
 MAX_ATTEMPTS = 8
+require_relative 'save.rb'
 class Hangman
-    @guesses
-    @name
-    @word
-    @correct
-    @incorrect_guesses
-    @display_word
+    attr_accessor :guesses, :name, :word, :incorrect_guesses, :display_word
     @game
     @ch
     def initialize()
@@ -13,10 +9,31 @@ class Hangman
         @guesses = 0
         @name = nil
         @word = nil
-        @correct = false
         @display_word = []
         @game = false
         @incorrect_guesses = []
+    end
+
+    def initialize_save(data)
+        @name = data[:name].to_s
+        @guesses = data[:guesses].to_i
+        @word = data[:word].to_s
+        parse_incorrect_guesses(data[:incorrect_guesses])
+        parse_display_word(data[:display_word])
+        @game = false
+        @ch = nil
+    end
+
+    def parse_incorrect_guesses(data)
+        @incorrect_guesses = []
+        data = data.split('')[1..-1]
+        data.each {|value| @incorrect_guesses.push(value) if letter?(value)}
+    end
+
+    def parse_display_word(data)
+        @display_word = []
+        data = data.split('')[1..-1]
+        data.each {|value| @display_word.push(value) if letter?(value) or value == '_'}
     end
 
     def ask_for_name()
@@ -38,7 +55,7 @@ class Hangman
 
     def initialize_display_word(len)
         len.times do |i|
-            @display_word[i] = "__"
+            @display_word[i] = "_"
         end
     end
 
@@ -67,12 +84,11 @@ class Hangman
         print "\n"
         file = File.read "hangman#{@guesses}.txt"
         puts file
-        puts "You have #{8 - @guesses} guesses remaining."
     end
 
     def display_string()
         print "\n"
-        @display_word.each {|value| print value + " "}
+        @display_word.each {|value| print value + "  "}
         print "\n"
     end
 
@@ -81,7 +97,15 @@ class Hangman
     end
     
     def check_input(ch)
-        ((ch.length == 1) and letter?(ch)) ? true : false
+        if ((ch.length == 1) and letter?(ch))
+            return 1
+        elsif ch == "save"
+            return 0
+        elsif ch == "load"
+            return -1
+        else
+            return -2
+        end
     end
 
     def check_win_condition()
@@ -97,45 +121,74 @@ class Hangman
         end
     end
 
+    def parse_data(name)
+        file = SaveAndLoad.new
+        data = file.load_records(name)
+        if data
+            initialize_save(data)
+        else
+            puts "Save file not found!"
+        end
+    end
+
+    def save_data()
+        file = SaveAndLoad.new
+        file.save_records(self)
+    end
+
     def begin_game()
         @name = ask_for_name
         puts "Welcome to Hangman!, #{@name}"
+        puts "Type load to load a previous game."
+        puts "Type save anytime to save your progress."
         puts "You have a total of 8 attempts to guess the word!"
         puts "Don't let the guy die!"
         initialize_word()
         initialize_display_word(@word.length)
         loop do
-            puts "Number of guesses left: #{8 - @guesses}"
+            puts "Number of guesses left: #{MAX_ATTEMPTS - @guesses}"
             display_hangman
             display_string
             display_incorrect_guesses
             loop do
-                puts "Enter your guess! (should be a single character)"
+                puts "Enter your guess! (should be a single character) or use save/load"
                 @ch = gets.chomp.to_s.downcase
-                puts "Incorrect input, try again!" if !check_input(@ch)
-                break if check_input(@ch)
+                puts "Incorrect input, try again!" if check_input(@ch) == -2
+                break if check_input(@ch) !=-2
             end
-            inst = compare_word(@ch)
-            if inst == -1
-                @guesses +=1
-                @incorrect_guesses.push(@ch)
+            if check_input(@ch) == 0
+                save_data
+                puts "Saving your data!"
+                sleep(2)
+                next
+            elsif check_input(@ch) == -1
+                puts "Loading your data!"
+                sleep(2)
+                parse_data(@name)
+                next
             else
-                modify_display_word(inst)
+                inst = compare_word(@ch)
+                if inst == -1
+                    @guesses +=1
+                    @incorrect_guesses.push(@ch)
+                else
+                    modify_display_word(inst)
+                end
+                @game = check_win_condition()
             end
-            sleep(0.3)
+            sleep(0.5)
             system("clear") || system("cls")
-            @game = check_win_condition()
-            break if @game or @guesses == 8
+            break if @game or @guesses == MAX_ATTEMPTS
         end
 
         if @game
-            puts "Congratulations! You successfully guessed the word."
-        elsif @guesses == 8
+            puts "Congratulations #{@name}! You successfully guessed the word."
+        elsif @guesses == MAX_ATTEMPTS
             puts "You ran out of attempts! :("
             display_hangman
-            print "\n"
-            puts "The word was #{@word}"
         end
+        print "\n"
+        puts "The word was #{@word}"
     end
 end
 
